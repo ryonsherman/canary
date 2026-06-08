@@ -216,8 +216,8 @@ async function load() {
     const status = chainStatus(canaries);
 
     // Check OTS file exists
-    const otsExists = items.some(i => i.name === latest.name.replace(".txt", ".ots"));
-    const ascExists = items.some(i => i.name === latest.name.replace(".txt", ".txt.asc"));
+    const otsExists = items.some(i => i.name === latest.name + ".ots");
+    const ascExists = items.some(i => i.name === latest.name + ".asc");
 
     el.innerHTML = `
       <div class="status-card">

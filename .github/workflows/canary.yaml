@@ -32,7 +32,9 @@ jobs:
         if: steps.find.outputs.file != ''
         run: |
           echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
-          echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --batch --yes --passphrase-fd 0 --pinentry-mode loopback --sign /dev/null
+          echo "test" > /tmp/gpg-test.txt
+          echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --batch --yes --passphrase-fd 0 --pinentry-mode loopback --sign /tmp/gpg-test.txt
+          rm -f /tmp/gpg-test.txt /tmp/gpg-test.txt.gpg
 
       - name: GPG clearsign
         if: steps.find.outputs.file != ''

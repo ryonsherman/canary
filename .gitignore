@@ -1,0 +1,9 @@
+opencode.sh
+local.properties
+.gradle/
+build/
+app/build/
+.cxx/
+*.iml
+.idea/
+.DS_Store

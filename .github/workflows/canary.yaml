@@ -1,0 +1,71 @@
+name: Seal Canary
+
+on:
+  push:
+    paths: ['canary/canary-*.txt']
+
+permissions:
+  contents: write
+
+jobs:
+  seal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find new canary file
+        id: find
+        run: |
+          NEW_FILE=$(git diff --name-only HEAD~1 HEAD | grep 'canary-.*\.txt$' || true)
+          if [ -z "$NEW_FILE" ]; then
+            echo "No new canary file found in HEAD~1..HEAD"
+            echo "file=" >> $GITHUB_OUTPUT
+            echo "base=" >> $GITHUB_OUTPUT
+          else
+            echo "file=$NEW_FILE" >> $GITHUB_OUTPUT
+            echo "base=${NEW_FILE%.txt}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Import GPG key
+        if: steps.find.outputs.file != ''
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --batch --yes --passphrase-fd 0 --pinentry-mode loopback --sign /dev/null
+
+      - name: GPG clearsign
+        if: steps.find.outputs.file != ''
+        run: |
+          gpg --clearsign --armor \
+            --output ${{ steps.find.outputs.base }}.txt.asc \
+            ${{ steps.find.outputs.file }}
+
+      - name: OpenTimestamps stamp
+        if: steps.find.outputs.file != ''
+        run: |
+          pip install opentimestamps-client -q
+          ots stamp ${{ steps.find.outputs.file }}
+
+      - name: Upgrade OTS to Bitcoin anchor
+        if: steps.find.outputs.file != ''
+        run: ots upgrade ${{ steps.find.outputs.file }}.ots || true
+
+      - name: Create signed git tag
+        if: steps.find.outputs.file != ''
+        run: |
+          DATE=$(basename ${{ steps.find.outputs.file }} .txt | sed 's/canary-//')
+          git tag -s "canary-$DATE" \
+            -m "Canary $DATE" 2>/dev/null || \
+          git tag "canary-$DATE" \
+            -m "Canary $DATE (unsigned)"
+
+      - name: Push artifacts and tags
+        if: steps.find.outputs.file != ''
+        run: |
+          git config user.name "canary-bot"
+          git config user.email "canary@localhost"
+          git add ${{ steps.find.outputs.base }}.*
+          git commit -m "seal: ${{ steps.find.outputs.file }}" || true
+          git push --atomic origin main --tags 2>&1 || \
+          git push origin main --tags 2>&1

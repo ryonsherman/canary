@@ -1,13 +1,16 @@
 package com.canary.viewmodel
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import com.canary.data.PreferencesManager
 import com.canary.model.ChainState
 import com.canary.service.ChainService
 import com.canary.service.CryptoService
 import com.canary.service.GithubService
+import com.canary.service.ReminderScheduler
 
 class HomeViewModel(
+    private val app: Application,
     private val prefsManager: PreferencesManager,
     private val cryptoService: CryptoService,
 ) : ViewModel() {
@@ -49,6 +52,12 @@ class HomeViewModel(
             val fingerprint = cryptoService.getPublicKeyFingerprint()
 
             gh.pushCanary(content, today, signature, fingerprint).getOrThrow()
+
+            prefsManager.lastCheckinDate = today
+            val scheduler = ReminderScheduler(app)
+            scheduler.dismissNotification()
+            scheduler.startHourlyReminders()
+
             return Result.success(today)
         } catch (e: Exception) {
             return Result.failure(e)

@@ -35,11 +35,16 @@ class PreferencesManager(context: Context) {
         get() = prefs.getBoolean(KEY_SETUP_DONE, false)
         set(value) = prefs.edit().putBoolean(KEY_SETUP_DONE, value).apply()
 
+    var lastCheckinDate: String
+        get() = prefs.getString(KEY_LAST_CHECKIN, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_LAST_CHECKIN, value).apply()
+
     companion object {
         private const val PREFS_NAME = "canary_secure_prefs"
         private const val KEY_GITHUB_PAT = "github_pat"
         private const val KEY_REPO_OWNER = "repo_owner"
         private const val KEY_REPO_NAME = "repo_name"
         private const val KEY_SETUP_DONE = "setup_complete"
+        private const val KEY_LAST_CHECKIN = "last_checkin_date"
     }
 }

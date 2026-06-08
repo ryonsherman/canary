@@ -1,8 +1,10 @@
 package com.canary.ui.screens
 
+import android.app.Application
 import android.nfc.NfcAdapter
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
@@ -27,7 +29,8 @@ fun HomeScreen(
     onNavigateToChain: () -> Unit,
     onNavigateToSettings: () -> Unit,
 ) {
-    val viewModel = remember { HomeViewModel(prefsManager, cryptoService) }
+    val context = LocalContext.current
+    val viewModel = remember { HomeViewModel(context.applicationContext as Application, prefsManager, cryptoService) }
     var nfcDetected by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf("") }
     var isSuccess by remember { mutableStateOf<Boolean?>(null) }

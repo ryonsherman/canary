@@ -30,7 +30,7 @@ Tap daily to prove you're alive — the canary is signed, pushed to GitHub, and 
 Each canary contains the SHA256 hash of the previous day's canary, forming a tamper-evident chain.  
 To forge a single entry an attacker needs: the previous day's hash, your GPG key, and a Bitcoin block from before the claimed date.
 
-The public dashboard is at **[ryonsherman.github.io/canary](https://ryonsherman.github.io/canary/)** — shows live status, chain integrity, and recent canaries.
+A **[public dashboard](https://ryonsherman.github.io/canary/)** shows the latest canary status, chain integrity, OTS/GPG proof badges, and recent canary history — no login required. Data is fetched directly from the public GitHub repo and updates automatically after each tap.
 
 ### Verification Layers
 

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canary — Proof of Life</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --green: #4CAF50;
+    --red: #ef5350;
+    --text: #e0e0e0;
+    --muted: #888;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+  }
+  .container { max-width: 640px; width: 100%; }
+  h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; }
+  .status-card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  .status-icon {
+    font-size: 4rem;
+    margin-bottom: 0.5rem;
+  }
+  .status-label {
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+  .status-date {
+    color: var(--muted);
+    margin-top: 0.25rem;
+  }
+  .alive { color: var(--green); }
+  .dead { color: var(--red); }
+  .pending { color: var(--muted); }
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .stat-value { font-size: 1.75rem; font-weight: 700; }
+  .stat-label { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; }
+  .chain-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+  }
+  .chain-card .date { color: var(--muted); }
+  .chain-card .hash { font-family: monospace; font-size: 0.8rem; color: var(--muted); }
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-ok { background: var(--green); color: #000; }
+  .badge-miss { background: var(--red); color: #fff; }
+  a { color: var(--green); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .footer { margin-top: 2rem; font-size: 0.8rem; color: var(--muted); text-align: center; }
+  .error { color: var(--red); text-align: center; padding: 2rem; }
+  .loading { text-align: center; padding: 2rem; color: var(--muted); }
+  .spinner {
+    display: inline-block;
+    width: 24px; height: 24px;
+    border: 3px solid var(--surface);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container" id="app">
+  <h1>🐤 Canary</h1>
+  <p class="subtitle">Proof of Life — <span id="owner-repo">ryonsherman/canary</span></p>
+  <div id="content">
+    <div class="loading"><div class="spinner"></div><p>Fetching latest canary...</p></div>
+  </div>
+</div>
+
+<script>
+const OWNER = "ryonsherman";
+const REPO = "canary";
+const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
+
+async function fetchJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function fetchText(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.text();
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso.endsWith("Z") ? iso : iso + "Z");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function ago(iso) {
+  const diff = Date.now() - new Date(iso.endsWith("Z") ? iso : iso + "Z").getTime();
+  const hrs = Math.floor(diff / 3600000);
+  if (hrs < 1) return "Less than an hour ago";
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function chainStatus(canaries) {
+  if (!canaries.length) return { ok: false, label: "No canaries yet", icon: "❓" };
+  const sorted = [...canaries].sort((a, b) => b.counter - a.counter);
+  let intact = true;
+  let brokenAt = null;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (sorted[i].previousHash && sorted[i].previousHash !== sorted[i + 1].fileHash) {
+      intact = false;
+      brokenAt = sorted[i].counter;
+      break;
+    }
+  }
+  return { ok: intact, label: intact ? "Chain Intact" : `Broken at #${brokenAt}`, icon: intact ? "✅" : "❌" };
+}
+
+async function load() {
+  const el = document.getElementById("content");
+  try {
+    const items = await fetchJson(`${API}/contents/canary`);
+    const txtFiles = items.filter(i => i.name.startsWith("canary-") && i.name.endsWith(".txt"))
+                          .sort((a, b) => b.name.localeCompare(a.name));
+
+    if (txtFiles.length === 0) {
+      el.innerHTML = `<div class="error">No canary files found in this repo.</div>`;
+      return;
+    }
+
+    // Fetch latest canary content
+    const latest = txtFiles[0];
+    const rawUrl = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/canary/${latest.name}`;
+    const content = await fetchText(rawUrl);
+    const ts = latest.name.replace("canary-", "").replace(".txt", "");
+
+    // Parse counter from content
+    const counterMatch = content.match(/Counter:\s*(\d+)/);
+    const counter = counterMatch ? parseInt(counterMatch[1]) : 0;
+
+    // Determine if today has a canary
+    const today = new Date().toISOString().slice(0, 10);
+    const isToday = ts.startsWith(today);
+
+    // Fetch recent canaries for chain check
+    const recentFiles = txtFiles.slice(0, 10);
+    const canaries = [];
+    for (const f of recentFiles) {
+      const c = await fetchText(`https://raw.githubusercontent.com/${OWNER}/${REPO}/main/canary/${f.name}`);
+      const cCounter = parseInt((c.match(/Counter:\s*(\d+)/) || [])[1] || 0);
+      const prevHash = ((c.match(/Previous Hash \(SHA256\):\s*([a-f0-9]+)/) || [])[1] || "").trim();
+      const fileHash = sha256(c);
+      canaries.push({
+        name: f.name,
+        date: f.name.replace("canary-", "").replace(".txt", ""),
+        counter: cCounter,
+        previousHash: prevHash,
+        fileHash,
+        content: c,
+      });
+    }
+
+    const status = chainStatus(canaries);
+
+    // Check OTS file exists
+    const otsExists = items.some(i => i.name === latest.name.replace(".txt", ".ots"));
+    const ascExists = items.some(i => i.name === latest.name.replace(".txt", ".txt.asc"));
+
+    el.innerHTML = `
+      <div class="status-card">
+        <div class="status-icon">${isToday ? "✅" : "⏳"}</div>
+        <div class="status-label ${isToday ? "alive" : "pending"}">${isToday ? "Alive" : "No canary today"}</div>
+        <div class="status-date">${fmtDate(ts)} (${ago(ts)})</div>
+      </div>
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-value">${counter}</div>
+          <div class="stat-label">Canaries</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value ${status.ok ? "alive" : "dead"}">${status.ok ? "✓" : "✗"}</div>
+          <div class="stat-label">${status.label}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">
+            <span style="color:${otsExists ? "var(--green)" : "var(--muted)"}">${otsExists ? "✓" : "—"}</span>
+          </div>
+          <div class="stat-label">OTS Proof</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">
+            <span style="color:${ascExists ? "var(--green)" : "var(--muted)"}">${ascExists ? "✓" : "—"}</span>
+          </div>
+          <div class="stat-label">GPG Signed</div>
+        </div>
+      </div>
+      <h3 style="margin-bottom: 0.75rem;">Recent Canaries</h3>
+      ${canaries.slice(0, 20).map(c => `
+        <div class="chain-card">
+          <div>
+            <div>#${c.counter}</div>
+            <div class="date">${fmtDate(c.date)}</div>
+          </div>
+          <div class="hash" title="SHA256: ${c.fileHash || "—"}">${(c.fileHash || "—").slice(0, 12)}...</div>
+          <a href="https://github.com/${OWNER}/${REPO}/blob/main/canary/${c.name}" target="_blank">View</a>
+        </div>
+      `).join("")}
+      <div class="footer">
+        <a href="https://github.com/${OWNER}/${REPO}/actions" target="_blank">GitHub Action</a>
+        &middot;
+        <a href="https://github.com/${OWNER}/${REPO}" target="_blank">Source</a>
+        &middot;
+        Data updates on each canary push
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="error">Failed to load canary data: ${e.message}</div>`;
+  }
+}
+
+// Simple SHA-256 implementation for the browser
+async function sha256(str) {
+  const enc = new TextEncoder().encode(str);
+  const hash = await crypto.subtle.digest("SHA-256", enc);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+load();
+</script>
+</body>
+</html>

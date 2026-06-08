@@ -56,20 +56,22 @@ jobs:
         if: steps.find.outputs.file != ''
         run: ots upgrade ${{ steps.find.outputs.file }}.ots || true
 
+      - name: Configure git identity
+        if: steps.find.outputs.file != ''
+        run: |
+          git config user.name "canary-bot"
+          git config user.email "ryon.sherman@gmail.com"
+
       - name: Create signed git tag
         if: steps.find.outputs.file != ''
         run: |
           DATE=$(basename ${{ steps.find.outputs.file }} .txt | sed 's/canary-//')
           git tag -s "canary-$DATE" \
-            -m "Canary $DATE" 2>/dev/null || \
-          git tag "canary-$DATE" \
-            -m "Canary $DATE (unsigned)"
+            -m "Canary $DATE"
 
       - name: Push artifacts and tags
         if: steps.find.outputs.file != ''
         run: |
-          git config user.name "canary-bot"
-          git config user.email "canary@localhost"
           git add ${{ steps.find.outputs.base }}.*
           git commit -m "seal: ${{ steps.find.outputs.file }}" || true
           git push --atomic origin main --tags 2>&1 || \

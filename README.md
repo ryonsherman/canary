@@ -3,6 +3,8 @@
 A proof-of-life Android app that uses an RFID tag as a physical token.  
 Tap daily to prove you're alive — the canary is signed, pushed to GitHub, and anchored to Bitcoin via OpenTimestamps.
 
+<img src="screenshots/home-screen.png" width="300" alt="Home screen"> <img src="screenshots/settings-screen.png" width="300" alt="Settings screen">
+
 ## How It Works
 
 ```

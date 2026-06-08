@@ -127,13 +127,27 @@ async function fetchText(url) {
   return res.text();
 }
 
-function fmtDate(iso) {
-  const d = new Date(iso.endsWith("Z") ? iso : iso + "Z");
+function parseCanaryDate(ts) {
+  // Input: "2026-06-08T073322Z"
+  const s = ts.replace("Z", "");
+  const [datePart, timePart] = s.split("T");
+  if (!timePart) return new Date(datePart + "T00:00:00Z");
+  const h = timePart.slice(0, 2);
+  const m = timePart.slice(2, 4);
+  const sec = timePart.slice(4, 6);
+  return new Date(datePart + "T" + h + ":" + m + ":" + sec + "Z");
+}
+
+function fmtDate(ts) {
+  const d = parseCanaryDate(ts);
+  if (isNaN(d.getTime())) return ts;
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function ago(iso) {
-  const diff = Date.now() - new Date(iso.endsWith("Z") ? iso : iso + "Z").getTime();
+function ago(ts) {
+  const d = parseCanaryDate(ts);
+  if (isNaN(d.getTime())) return "";
+  const diff = Date.now() - d.getTime();
   const hrs = Math.floor(diff / 3600000);
   if (hrs < 1) return "Less than an hour ago";
   if (hrs < 24) return `${hrs}h ago`;

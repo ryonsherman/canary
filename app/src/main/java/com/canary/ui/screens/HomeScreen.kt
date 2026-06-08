@@ -90,6 +90,17 @@ fun HomeScreen(
         }
     }
 
+    LaunchedEffect(isSuccess) {
+        if (isSuccess == true) {
+            kotlinx.coroutines.delay(5000)
+            nfcDetected = false
+            isSuccess = null
+            statusMessage = ""
+        }
+    }
+
+    val isPushing = viewModel.isPushing()
+
     @OptIn(ExperimentalMaterial3Api::class)
     Scaffold(
         topBar = {
@@ -134,20 +145,27 @@ fun HomeScreen(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = when {
-                        isSuccess == true -> "✓"
-                        isSuccess == false -> "✗"
-                        nfcDetected -> "···"
-                        else -> "⟐"
-                    },
-                    style = MaterialTheme.typography.displayLarge,
-                    color = when {
-                        isSuccess == true -> Green40
-                        isSuccess == false -> Red40
-                        else -> MaterialTheme.colorScheme.primary
-                    },
-                )
+                if (isPushing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(64.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    Text(
+                        text = when {
+                            isSuccess == true -> "✓"
+                            isSuccess == false -> "✗"
+                            nfcDetected -> "···"
+                            else -> "⟐"
+                        },
+                        style = MaterialTheme.typography.displayLarge,
+                        color = when {
+                            isSuccess == true -> Green40
+                            isSuccess == false -> Red40
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                    )
+                }
             }
 
             Spacer(Modifier.height(24.dp))
@@ -163,6 +181,22 @@ fun HomeScreen(
             )
 
             Spacer(Modifier.height(8.dp))
+
+            if (prefsManager.githubPat.isBlank() && !isPushing) {
+                Spacer(Modifier.height(16.dp))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = onNavigateToSettings,
+                ) {
+                    Text(
+                        "GitHub not configured — tap to open Settings",
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
 
             if (statusMessage.isNotBlank()) {
                 Text(
@@ -190,10 +224,11 @@ fun HomeScreen(
                             if (lastTime.isNotBlank()) {
                                 try {
                                     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HHmmss'Z'", Locale.US)
-                                    val instant = java.time.Instant.from(formatter.parse(lastTime))
-                                    val local = instant.atZone(ZoneId.systemDefault())
+                                    val parsed = formatter.parse(lastTime)
+                                    val local = java.time.LocalDateTime.from(parsed).atZone(java.time.ZoneOffset.UTC)
+                                    val zoned = local.withZoneSameInstant(ZoneId.systemDefault())
                                     val outFormat = DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm", Locale.US)
-                                    outFormat.format(local)
+                                    outFormat.format(zoned)
                                 } catch (_: Exception) { lastTime }
                             } else "—",
                             style = MaterialTheme.typography.bodyMedium,

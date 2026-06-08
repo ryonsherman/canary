@@ -6,6 +6,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.ConnectException
+import java.net.UnknownHostException
+import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 
 class GithubApi(private val token: String) {
@@ -43,10 +46,18 @@ class GithubApi(private val token: String) {
             .header("Accept", "application/vnd.github.v3+json")
             .build()
 
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw RuntimeException("GitHub API error ${response.code}: ${response.body?.string()}")
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw RuntimeException("GitHub API error ${response.code}: ${response.body?.string()}")
+                }
             }
+        } catch (e: UnknownHostException) {
+            throw RuntimeException("No internet connection — check your network")
+        } catch (e: SocketTimeoutException) {
+            throw RuntimeException("Connection timed out — GitHub may be slow")
+        } catch (e: ConnectException) {
+            throw RuntimeException("Could not connect to GitHub — check your network")
         }
     }
 
@@ -112,7 +123,7 @@ class GithubApi(private val token: String) {
 
         client.newCall(request).execute().use { response ->
             if (response.isSuccessful) {
-                JSONObject(response.body?.string() ?: "{}").optString("sha", null)
+                JSONObject(response.body?.string() ?: "{}").optString("sha", null as String?)
             } else null
         }
     }.getOrNull()

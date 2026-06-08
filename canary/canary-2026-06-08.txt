@@ -1,0 +1,12 @@
+--- BEGIN CANARY SIGNATURE ---
+Public Key Fingerprint: 9db7636360a3c7ea
+Signature (hex): 3046022100dac16a7be5f2db23a845cb5f755c2bbf5083c86a5851ae861f40896717412f930221008ba094fb45fd1fb05083ea0727bf323279ff363900c3557aa14322b76901d5ce
+--- END CANARY SIGNATURE ---
+
+=== PROOF OF LIFE CANARY ===
+Status: Alive
+Date: 2026-06-08Z
+Timestamp: 2026-06-08T04:26:18Z
+Counter: 1
+Previous Hash (SHA256): GENESIS_NO_PREVIOUS
+============================

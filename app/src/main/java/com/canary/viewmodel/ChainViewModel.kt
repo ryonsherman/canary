@@ -1,31 +1,40 @@
 package com.canary.viewmodel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.canary.data.PreferencesManager
 import com.canary.model.ChainState
 import com.canary.service.ChainService
 import com.canary.service.GithubService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ChainViewModel(
     private val prefsManager: PreferencesManager,
 ) : ViewModel() {
 
-    private var _chainState: ChainState? = null
+    private var _chainState: ChainState? by mutableStateOf(null)
     fun chainState(): ChainState? = _chainState
 
-    private var _isLoading = false
+    private var _isLoading: Boolean by mutableStateOf(false)
     fun isLoading(): Boolean = _isLoading
 
     fun loadChain(depth: Int = 50) {
-        val gh = getGithubService() ?: return
-        val chainService = ChainService(gh)
-        _isLoading = true
+        viewModelScope.launch {
+            val gh = getGithubService() ?: return@launch
+            val chainService = ChainService(gh)
+            _isLoading = true
 
-        kotlinx.coroutines.runBlocking {
-            _chainState = chainService.verifyChain(depth)
+            val state = withContext(Dispatchers.IO) {
+                chainService.verifyChain(depth)
+            }
+            _chainState = state
+            _isLoading = false
         }
-
-        _isLoading = false
     }
 
     private fun getGithubService(): GithubService? {

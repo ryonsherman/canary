@@ -20,3 +20,6 @@ val BlueContainer = Color(0xFFBBDEFB)
 
 val DarkSurface = Color(0xFF1A1A2E)
 val DarkBackground = Color(0xFF0F0F1A)
+
+val LightSurface = Color(0xFFF5F5F5)
+val LightBackground = Color(0xFFFFFFFF)

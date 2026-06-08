@@ -21,15 +21,15 @@ class PreferencesManager(context: Context) {
 
     var githubPat: String
         get() = prefs.getString(KEY_GITHUB_PAT, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_GITHUB_PAT, value).apply()
+        set(value) = prefs.edit().putString(KEY_GITHUB_PAT, value.trim()).apply()
 
     var repoOwner: String
         get() = prefs.getString(KEY_REPO_OWNER, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_REPO_OWNER, value).apply()
+        set(value) = prefs.edit().putString(KEY_REPO_OWNER, value.trim()).apply()
 
     var repoName: String
         get() = prefs.getString(KEY_REPO_NAME, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_REPO_NAME, value).apply()
+        set(value) = prefs.edit().putString(KEY_REPO_NAME, value.trim()).apply()
 
     var isSetupComplete: Boolean
         get() = prefs.getBoolean(KEY_SETUP_DONE, false)
@@ -39,6 +39,21 @@ class PreferencesManager(context: Context) {
         get() = prefs.getString(KEY_LAST_CHECKIN, "") ?: ""
         set(value) = prefs.edit().putString(KEY_LAST_CHECKIN, value).apply()
 
+    var recoveryMnemonic: String
+        get() = prefs.getString(KEY_RECOVERY_MNEMONIC, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_RECOVERY_MNEMONIC, value).apply()
+
+    var tagRawSecret: ByteArray?
+        get() {
+            val s = prefs.getString(KEY_TAG_RAW_SECRET, null) ?: return null
+            if (s.isEmpty()) return null
+            return try { android.util.Base64.decode(s, android.util.Base64.DEFAULT) } catch (_: Exception) { null }
+        }
+        set(value) {
+            val s = value?.let { android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP) }
+            prefs.edit().putString(KEY_TAG_RAW_SECRET, s).apply()
+        }
+
     companion object {
         private const val PREFS_NAME = "canary_secure_prefs"
         private const val KEY_GITHUB_PAT = "github_pat"
@@ -46,5 +61,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_REPO_NAME = "repo_name"
         private const val KEY_SETUP_DONE = "setup_complete"
         private const val KEY_LAST_CHECKIN = "last_checkin_date"
+        private const val KEY_RECOVERY_MNEMONIC = "recovery_mnemonic"
+        private const val KEY_TAG_RAW_SECRET = "tag_raw_secret"
     }
 }

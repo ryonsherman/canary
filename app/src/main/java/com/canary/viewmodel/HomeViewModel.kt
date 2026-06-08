@@ -1,13 +1,22 @@
 package com.canary.viewmodel
 
 import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.canary.data.PreferencesManager
+import com.canary.model.ChainHead
 import com.canary.model.ChainState
 import com.canary.service.ChainService
 import com.canary.service.CryptoService
 import com.canary.service.GithubService
 import com.canary.service.ReminderScheduler
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
 
 class HomeViewModel(
     private val app: Application,
@@ -17,34 +26,45 @@ class HomeViewModel(
 
     private var githubService: GithubService? = null
 
-    private var _lastCanaryTime: String = ""
+    private var _lastCanaryTime: String by mutableStateOf("")
     fun lastCanaryTime(): String = _lastCanaryTime
 
-    private var _chainState: ChainState? = null
+    private var _chainState: ChainState? by mutableStateOf(null)
     fun chainState(): ChainState? = _chainState
 
-    private var _isPushing = false
+    private val pushMutex = Mutex()
+    private var _isPushing by mutableStateOf(false)
     fun isPushing(): Boolean = _isPushing
 
     fun refreshChain() {
-        val gh = getGithubService() ?: return
-        val chainService = ChainService(gh)
-        kotlinx.coroutines.runBlocking {
-            _chainState = chainService.verifyChain(5)
-            _chainState?.lastCanaryTimestamp?.let { _lastCanaryTime = it }
+        viewModelScope.launch {
+            val gh = getGithubService() ?: return@launch
+            val chainService = ChainService(gh)
+            val state = withContext(Dispatchers.IO) {
+                try {
+                    chainService.verifyChain(5)
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            _chainState = state
+            _lastCanaryTime = state?.lastCanaryTimestamp ?: ""
         }
     }
 
-    fun signAndPushCanary(): Result<String> {
-        val gh = getGithubService() ?: return Result.failure(Exception("GitHub not configured"))
-        val chainService = ChainService(gh)
-
+    suspend fun signAndPushCanary(): Result<String> = withContext(Dispatchers.IO) {
+        if (!pushMutex.tryLock()) return@withContext Result.failure(Exception("Already pushing"))
         _isPushing = true
         try {
+            val gh = getGithubService()
+            if (gh == null) return@withContext Result.failure(Exception("GitHub not configured"))
+            val chainService = ChainService(gh)
+
             val today = GithubService.todayDate()
             val now = GithubService.nowTimestamp()
-            val counter = gh.getLatestCounter() + 1
-            val previousHash = gh.getPreviousHash()
+            val head = gh.fetchChainHead()
+            val counter = head.counter + 1
+            val previousHash = head.previousHash
 
             val content = chainService.generateCanaryContent(today, now, counter, previousHash)
             val contentBytes = content.toByteArray()
@@ -58,11 +78,12 @@ class HomeViewModel(
             scheduler.dismissNotification()
             scheduler.startHourlyReminders()
 
-            return Result.success(today)
+            Result.success(today)
         } catch (e: Exception) {
-            return Result.failure(e)
+            Result.failure(e)
         } finally {
             _isPushing = false
+            pushMutex.unlock()
         }
     }
 

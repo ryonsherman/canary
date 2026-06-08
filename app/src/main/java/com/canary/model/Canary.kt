@@ -10,6 +10,11 @@ data class Canary(
     val tagExists: Boolean? = null,
 )
 
+data class ChainHead(
+    val counter: Int,
+    val previousHash: String,
+)
+
 data class ChainState(
     val canaries: List<Canary>,
     val totalCount: Int,

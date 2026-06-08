@@ -1,6 +1,11 @@
 package com.canary.ui.screens
 
 import android.app.Application
+import android.content.Intent
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import android.nfc.NfcAdapter
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -18,6 +23,7 @@ import com.canary.MainActivity
 import com.canary.data.PreferencesManager
 import com.canary.service.CryptoService
 import com.canary.service.NfcService
+import kotlinx.coroutines.launch
 import com.canary.ui.theme.*
 import com.canary.viewmodel.HomeViewModel
 
@@ -39,18 +45,47 @@ fun HomeScreen(
         viewModel.refreshChain()
     }
 
-    LaunchedEffect(Unit) {
-        MainActivity.nfcIntentHandler = { intent ->
-            val tagHash = nfcService.readTagHash(intent)
-            if (tagHash != null) {
-                nfcDetected = true
-                val result = viewModel.signAndPushCanary()
-                isSuccess = result.isSuccess
-                statusMessage = if (result.isSuccess) {
-                    "Canary pushed for ${result.getOrNull()}"
-                } else {
-                    "Failed: ${result.exceptionOrNull()?.message}"
+    val scope = rememberCoroutineScope()
+
+    DisposableEffect(Unit) {
+        val handler: (Intent) -> Unit = { intent ->
+            statusMessage = ""
+            isSuccess = null
+            if (viewModel.isPushing()) {
+                statusMessage = "Already pushing a canary, please wait..."
+            } else {
+                scope.launch {
+                    try {
+                        val tagSecret = nfcService.readTagHash(intent)
+                        val storedSecret = prefsManager.tagRawSecret
+                        val isOurTag = storedSecret != null && tagSecret != null &&
+                            storedSecret.contentEquals(tagSecret)
+                        if (isOurTag) {
+                            val result = viewModel.signAndPushCanary()
+                            if (result.isSuccess) {
+                                viewModel.refreshChain()
+                            }
+                            nfcDetected = true
+                            isSuccess = result.isSuccess
+                            statusMessage = if (result.isSuccess) {
+                                "Canary pushed for ${result.getOrNull()}"
+                            } else {
+                                "Failed: ${result.exceptionOrNull()?.message ?: result.exceptionOrNull().toString()}"
+                            }
+                        } else {
+                            statusMessage = if (tagSecret != null) "Wrong tag — not paired with this device"
+                                else "Tag read failed — is this your paired tag?"
+                        }
+                    } catch (e: Exception) {
+                        statusMessage = "NFC error: ${e.message ?: e.toString()}"
+                    }
                 }
+            }
+        }
+        MainActivity.nfcIntentHandler.set(handler)
+        onDispose {
+            if (MainActivity.nfcIntentHandler.get() === handler) {
+                MainActivity.nfcIntentHandler.set(null)
             }
         }
     }
@@ -110,7 +145,7 @@ fun HomeScreen(
                     color = when {
                         isSuccess == true -> Green40
                         isSuccess == false -> Red40
-                        else -> Green80
+                        else -> MaterialTheme.colorScheme.primary
                     },
                 )
             }
@@ -122,7 +157,7 @@ fun HomeScreen(
                     isSuccess == true -> "Alive"
                     isSuccess == false -> "Failed"
                     nfcDetected -> "Verifying..."
-                    else -> "Tap your sticker"
+                    else -> "Tap your RFID tag"
                 },
                 style = MaterialTheme.typography.headlineMedium,
             )
@@ -150,29 +185,45 @@ fun HomeScreen(
                     val lastTime = viewModel.lastCanaryTime()
 
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Last canary", style = MaterialTheme.typography.bodyMedium)
+                        Text("Last Canary", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            if (lastTime.isNotBlank()) lastTime else "—",
+                            if (lastTime.isNotBlank()) {
+                                try {
+                                    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HHmmss'Z'", Locale.US)
+                                    val instant = java.time.Instant.from(formatter.parse(lastTime))
+                                    val local = instant.atZone(ZoneId.systemDefault())
+                                    val outFormat = DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm", Locale.US)
+                                    outFormat.format(local)
+                                } catch (_: Exception) { lastTime }
+                            } else "—",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Green80,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Chain length", style = MaterialTheme.typography.bodyMedium)
+                        Text("Chain Length", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            "${chain?.totalCount ?: 0} days",
+                            "${if (chain != null) "${chain.totalCount} Links" else "--"}",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Green80,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Status", style = MaterialTheme.typography.bodyMedium)
+                        Text("Integrity", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            if (chain?.intact != false) "Healthy ✓" else "BREAK ✗",
+                            when {
+                                chain == null -> "—"
+                                chain.intact -> "Healthy ✓"
+                                else -> "BREAK ✗"
+                            },
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (chain?.intact != false) Green80 else Red80,
+                            color = when {
+                                chain == null -> MaterialTheme.colorScheme.onSurfaceVariant
+                                chain.intact -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.error
+                            },
                         )
                     }
                 }

@@ -1,6 +1,5 @@
 package com.canary.service
 
-import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -27,6 +26,11 @@ class OtsService {
         connection.readTimeout = 10_000
 
         connection.outputStream.use { it.write(fileHash) }
+        val responseCode = connection.responseCode
+        if (responseCode !in 200..299) {
+            val errorBody = try { connection.errorStream?.readBytes()?.toString(Charsets.UTF_8) } catch (_: Exception) { null }
+            throw RuntimeException("OTS HTTP $responseCode: ${errorBody ?: "no error body"}")
+        }
         return connection.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
     }
 

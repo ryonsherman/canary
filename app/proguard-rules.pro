@@ -1,3 +1,1 @@
-# Keep crypto keys
--keep class org.bouncycastle.** { *; }
--dontwarn org.bouncycastle.**
+# No custom ProGuard rules needed

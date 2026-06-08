@@ -74,16 +74,6 @@ class CryptoService {
         return secret
     }
 
-    fun hashSecret(secret: ByteArray): ByteArray {
-        val digest = MessageDigest.getInstance("SHA-256")
-        return digest.digest(secret)
-    }
-
-    fun verifyTagSecret(storedHash: ByteArray, providedSecret: ByteArray): Boolean {
-        val computedHash = hashSecret(providedSecret)
-        return storedHash.contentEquals(computedHash)
-    }
-
     companion object {
         private const val KEY_ALIAS = "canary_ed25519_key"
         private const val ANDROID_KEY_STORE = "AndroidKeyStore"

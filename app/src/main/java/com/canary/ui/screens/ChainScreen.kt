@@ -55,7 +55,7 @@ fun ChainScreen(
                         Text(
                             text = if (state.intact) "Chain Intact ✓" else "Chain Broken ✗",
                             style = MaterialTheme.typography.headlineMedium,
-                            color = if (state.intact) Green80 else Red80,
+                            color = if (state.intact) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
@@ -67,7 +67,7 @@ fun ChainScreen(
                             Text(
                                 "Break at canary #$it",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Red80,
+                                color = MaterialTheme.colorScheme.error,
                             )
                         }
                     }

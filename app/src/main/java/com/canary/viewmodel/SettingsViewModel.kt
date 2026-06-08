@@ -23,10 +23,10 @@ class SettingsViewModel(
     }
 
     fun updateGithubConfig(owner: String, repo: String, pat: String) {
-        prefsManager.repoOwner = owner
-        prefsManager.repoName = repo
-        prefsManager.githubPat = pat
+        prefsManager.repoOwner = owner.trim()
+        prefsManager.repoName = repo.trim()
+        prefsManager.githubPat = pat.trim()
     }
 
-    fun isTagPaired(): Boolean = prefsManager.isSetupComplete
+    fun isTagPaired(): Boolean = prefsManager.tagRawSecret != null
 }

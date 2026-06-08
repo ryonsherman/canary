@@ -14,6 +14,7 @@ object Routes {
     const val HOME = "home"
     const val CHAIN = "chain"
     const val SETTINGS = "settings"
+    const val RECOVERY = "recovery"
 }
 
 @Composable
@@ -35,7 +36,8 @@ fun CanaryNavHost(
                     navController.navigate(Routes.HOME) {
                         popUpTo(Routes.SETUP) { inclusive = true }
                     }
-                }
+                },
+                onNavigateToRecovery = { navController.navigate(Routes.RECOVERY) },
             )
         }
         composable(Routes.HOME) {
@@ -49,6 +51,18 @@ fun CanaryNavHost(
         }
         composable(Routes.CHAIN) {
             ChainScreen(prefsManager = prefsManager)
+        }
+        composable(Routes.RECOVERY) {
+            RecoveryScreen(
+                nfcService = nfcService,
+                cryptoService = cryptoService,
+                prefsManager = prefsManager,
+                onComplete = {
+                    navController.navigate(Routes.HOME) {
+                        popUpTo(Routes.RECOVERY) { inclusive = true }
+                    }
+                },
+            )
         }
         composable(Routes.SETTINGS) {
             SettingsScreen(

@@ -22,7 +22,7 @@ class GithubApi(private val token: String) {
         owner: String,
         repo: String,
         path: String,
-        content: String,
+        contentBytes: ByteArray,
         message: String,
     ): Result<Unit> = runCatching {
         val url = "$baseUrl/repos/$owner/$repo/contents/$path"
@@ -31,7 +31,7 @@ class GithubApi(private val token: String) {
         val body = JSONObject().apply {
             put("message", message)
             put("content", android.util.Base64.encodeToString(
-                content.toByteArray(), android.util.Base64.NO_WRAP
+                contentBytes, android.util.Base64.NO_WRAP
             ))
             sha?.let { put("sha", it) }
         }
@@ -43,9 +43,10 @@ class GithubApi(private val token: String) {
             .header("Accept", "application/vnd.github.v3+json")
             .build()
 
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) {
-            throw RuntimeException("GitHub API error ${response.code}: ${response.body?.string()}")
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw RuntimeException("GitHub API error ${response.code}: ${response.body?.string()}")
+            }
         }
     }
 
@@ -57,8 +58,19 @@ class GithubApi(private val token: String) {
             .header("Accept", "application/vnd.github.v3.raw")
             .build()
 
-        val response = client.newCall(request).execute()
-        if (response.isSuccessful) response.body?.string() else null
+        client.newCall(request).execute().use { response ->
+            if (response.isSuccessful) response.body?.string() else null
+        }
+    }.getOrNull()
+
+    fun fetchPublicFile(owner: String, repo: String, path: String): String? = runCatching {
+        val url = "https://raw.githubusercontent.com/$owner/$repo/main/$path"
+        val request = Request.Builder()
+            .url(url)
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (response.isSuccessful) response.body?.string() else null
+        }
     }.getOrNull()
 
     fun listCanaryFiles(owner: String, repo: String, count: Int = 10): List<String> = runCatching {
@@ -70,18 +82,24 @@ class GithubApi(private val token: String) {
             .build()
 
         val response = client.newCall(request).execute()
-        if (!response.isSuccessful) return emptyList()
-
-        val json = JSONArray(response.body?.string() ?: "[]")
-        val files = mutableListOf<String>()
-        for (i in 0 until json.length()) {
-            val obj = json.getJSONObject(i)
-            val name = obj.getString("name")
-            if (name.startsWith("canary-") && name.endsWith(".txt")) {
-                files.add(name)
+        val result = response.use { resp ->
+            if (!resp.isSuccessful) {
+                android.util.Log.w("GithubApi", "listCanaryFiles HTTP ${resp.code}: ${resp.body?.string()}")
+                return@use emptyList()
             }
+
+            val json = JSONArray(resp.body?.string() ?: "[]")
+            val files = mutableListOf<String>()
+            for (i in 0 until json.length()) {
+                val obj = json.getJSONObject(i)
+                val name = obj.getString("name")
+                if (name.startsWith("canary-") && name.endsWith(".txt")) {
+                    files.add(name)
+                }
+            }
+            files.sortedDescending().take(count)
         }
-        files.sortedDescending().take(count)
+        result
     }.getOrElse { emptyList() }
 
     private fun getExistingFileSha(owner: String, repo: String, path: String): String? = runCatching {
@@ -92,10 +110,11 @@ class GithubApi(private val token: String) {
             .header("Accept", "application/vnd.github.v3+json")
             .build()
 
-        val response = client.newCall(request).execute()
-        if (response.isSuccessful) {
-            JSONObject(response.body?.string() ?: "{}").optString("sha", null)
-        } else null
+        client.newCall(request).execute().use { response ->
+            if (response.isSuccessful) {
+                JSONObject(response.body?.string() ?: "{}").optString("sha", null)
+            } else null
+        }
     }.getOrNull()
 
     companion object {

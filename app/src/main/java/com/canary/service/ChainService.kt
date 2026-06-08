@@ -32,7 +32,7 @@ class ChainService(private val githubService: GithubService) {
             totalCount = sortedDesc.size,
             intact = intact,
             breakAtIndex = breakAt,
-            lastCanaryTimestamp = sortedDesc.firstOrNull()?.let { "${it.date}Z" },
+            lastCanaryTimestamp = sortedDesc.firstOrNull()?.date,
         )
     }
 

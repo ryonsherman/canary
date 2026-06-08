@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import androidx.core.app.NotificationCompat
 import com.canary.CanaryApp
 import com.canary.MainActivity
+import com.canary.R
 import com.canary.data.PreferencesManager
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -17,7 +18,7 @@ import java.util.TimeZone
 class ReminderReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent?) {
-        val prefs = PreferencesManager(context)
+        val prefs = getPrefs(context)
         val today = todayDate()
 
         if (prefs.lastCheckinDate == today) {
@@ -33,9 +34,9 @@ class ReminderReceiver : BroadcastReceiver() {
         )
 
         val notification = NotificationCompat.Builder(context, CanaryApp.REMINDER_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Canary not yet checked in")
-            .setContentText("Tap your sticker to prove you're alive")
+            .setContentText("Tap your RFID tag to prove you're alive")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(false)
@@ -47,6 +48,12 @@ class ReminderReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        private var cachedPrefs: PreferencesManager? = null
+
+        private fun getPrefs(context: Context): PreferencesManager {
+            return cachedPrefs ?: PreferencesManager(context.applicationContext).also { cachedPrefs = it }
+        }
+
         fun todayDate(): String {
             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
             sdf.timeZone = TimeZone.getTimeZone("UTC")

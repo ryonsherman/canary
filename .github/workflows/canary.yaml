@@ -59,8 +59,9 @@ jobs:
       - name: Configure git identity
         if: steps.find.outputs.file != ''
         run: |
-          git config user.name "canary-bot"
+          git config user.name "ryon-sherman"
           git config user.email "ryon.sherman@gmail.com"
+          git config user.signingkey 31D712D4DB008466
 
       - name: Create signed git tag
         if: steps.find.outputs.file != ''

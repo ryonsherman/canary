@@ -189,14 +189,13 @@ async function load() {
       const c = await fetchText(`https://raw.githubusercontent.com/${OWNER}/${REPO}/main/canary/${f.name}`);
       const cCounter = parseInt((c.match(/Counter:\s*(\d+)/) || [])[1] || 0);
       const prevHash = ((c.match(/Previous Hash \(SHA256\):\s*([a-f0-9]+)/) || [])[1] || "").trim();
-      const fileHash = sha256(c);
+      const fileHash = await sha256(c);
       canaries.push({
         name: f.name,
         date: f.name.replace("canary-", "").replace(".txt", ""),
         counter: cCounter,
         previousHash: prevHash,
         fileHash,
-        content: c,
       });
     }
 

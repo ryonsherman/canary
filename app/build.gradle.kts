@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.canary.app"
+    namespace = "com.canary"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.canary.app"
+        applicationId = "com.canary"
         minSdk = 28
         targetSdk = 35
         versionCode = 1

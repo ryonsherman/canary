@@ -48,13 +48,15 @@ jobs:
 
       - name: OpenTimestamps stamp
         if: steps.find.outputs.file != ''
+        timeout-minutes: 2
         run: |
-          pip install opentimestamps-client -q
-          ots stamp ${{ steps.find.outputs.file }}
+          pip install opentimestamps-client 2>&1 | tail -5
+          timeout 60 ots stamp ${{ steps.find.outputs.file }} || echo "OTS stamp skipped (timeout)"
 
       - name: Upgrade OTS to Bitcoin anchor
         if: steps.find.outputs.file != ''
-        run: ots upgrade ${{ steps.find.outputs.file }}.ots || true
+        timeout-minutes: 1
+        run: timeout 30 ots upgrade ${{ steps.find.outputs.file }}.ots || echo "OTS upgrade skipped (not yet confirmed)"
 
       - name: Configure git identity
         if: steps.find.outputs.file != ''
